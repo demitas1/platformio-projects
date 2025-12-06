@@ -1,0 +1,30 @@
+# Python venv
+.venv/
+venv/
+__pycache__/
+
+# PlatformIO
+.pio/
+.pioenvs/
+.piodeps/
+.cache/
+
+# PlatformIO/ESP-IDF generated
+CMakeLists.txt
+sdkconfig.*
+!sdkconfig.defaults
+
+# PlatformIO generated READMEs
+include/README
+lib/README
+test/README
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
