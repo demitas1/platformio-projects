@@ -1,0 +1,13 @@
+{
+    "name": "FreeRTOS",
+    "version": "10.3.1",
+    "build": {
+        "flags": [
+            "-I.",
+            "-Isrc/include",
+            "-Isrc/portable/GCC/ARM_CM3"
+        ],
+        "srcDir": ".",
+        "srcFilter": "+<src/>"
+    }
+}
