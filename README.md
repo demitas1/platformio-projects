@@ -8,6 +8,7 @@
 |-----------------|---------------|--------|
 | ESP32 | ESP-IDF | esp32dev |
 | Raspberry Pi Pico | Arduino (earlephilhower) | pico |
+| STM32 | STM32Cube (HAL) | blackpill_f411ce |
 
 ## 必要環境
 
@@ -45,8 +46,10 @@ sudo usermod -aG dialout $USER
 projects/
 ├── esp32/
 │   └── led-blink/    # LED点滅プログラム (ESP-IDF)
-└── rpi_pico/
-    └── led-blink/    # LED点滅プログラム (Arduino + FreeRTOS)
+├── rpi_pico/
+│   └── led-blink/    # LED点滅プログラム (Arduino + FreeRTOS)
+└── stm32/
+    └── led-blink/    # LED点滅プログラム (STM32Cube HAL)
 ```
 
 ## 基本コマンド
@@ -106,3 +109,22 @@ monitor_speed = 115200
 ```
 
 **アップロード方法**: BOOTSELボタンを押しながらUSBケーブルを接続してから `pio run -t upload` を実行。
+
+### STM32 (Blackpill)
+
+```bash
+cd projects/stm32
+mkdir <project-name>
+cd <project-name>
+pio project init --board blackpill_f411ce --project-option "framework=stm32cube"
+```
+
+`platformio.ini`にST-Link設定を追加:
+
+```ini
+upload_protocol = stlink
+debug_tool = stlink
+monitor_speed = 115200
+```
+
+**アップロード方法**: ST-Link V2をBlackpillのSWD端子に接続して `pio run -t upload` を実行。
