@@ -13,7 +13,7 @@ STM32F411CE Blackpillボードのオンボード青色LED（PC13）をFreeRTOS�
 
 - **フレームワーク**: STM32Cube HAL
 - **RTOS**: FreeRTOS 10.3.1
-- **ポート**: ARM_CM3 (Cortex-M3/M4互換)
+- **ポート**: ARM_CM4F (Cortex-M4 FPU対応)
 
 ## プロジェクト構成
 
@@ -28,6 +28,7 @@ led-blink-free-rtos/
         ├── library.json    # ライブラリ設定
         ├── FreeRTOSConfig.h
         └── src/            # FreeRTOSソース
+            └── portable/GCC/ARM_CM4F/  # FPU対応ポート
 ```
 
 ## ビルド
@@ -71,21 +72,17 @@ pio run -t upload
 
 ### 問題の経緯
 
-STM32Cubeフレームワーク（`~/.platformio/packages/framework-stm32cubef4/`）にはFreeRTOSが含まれているが、PlatformIOでは自動的に有効にならない。外部パスからFreeRTOSソースを参照する方法を試みたが、以下の問題が発生した。
+STM32Cubeフレームワーク（`~/.platformio/packages/framework-stm32cubef4/`）にはFreeRTOSが含まれているが、PlatformIOでは自動的に有効にならない。`lib_deps = FreeRTOS`を指定するとPlatformIOレジストリからダウンロードされるが、インクルードパスが自動解決されないためビルドに失敗する。
 
 ### 発生した問題
 
-1. **VFPフラグの不整合**
+1. **lib_depsでのインクルードパス問題**
 
-   `build_src_filter`で外部パスのFreeRTOSソースをビルドに含めると、FreeRTOSソースには`-mfloat-abi=hard -mfpu=fpv4-sp-d16`が適用されるが、HALドライバやスタートアップコードにはデフォルト設定（soft float）が適用される。リンク時にVFPレジスタの不整合エラーが発生。
-
-   ```
-   error: xxx.o uses VFP register arguments, firmware.elf does not
-   ```
+   `lib_deps = FreeRTOS`でライブラリが自動ダウンロードされるが、`#include "FreeRTOS.h"`が解決されない。
 
 2. **ARM_CM4F（FPU対応）ポートのアセンブラエラー**
 
-   Cortex-M4F用ポート（`portable/GCC/ARM_CM4F/port.c`）はFPUレジスタの保存/復元にVFP命令を使用する。PlatformIOのデフォルト設定では`-mcpu=cortex-m4`のみでFPUフラグが含まれないため、アセンブラエラーが発生。
+   PlatformIOのデフォルト設定では`-mfpu`や`-mfloat-abi`フラグが含まれないため、FPU命令を使用するARM_CM4Fポートでアセンブラエラーが発生する。
 
    ```
    Error: selected processor does not support `vstmdbeq r0!,{s16-s31}' in Thumb mode
@@ -95,12 +92,28 @@ STM32Cubeフレームワーク（`~/.platformio/packages/framework-stm32cubef4/`
 
 1. **FreeRTOSソースをプロジェクト内にコピー**
 
-   `lib/FreeRTOS/`にソースを配置することで、プロジェクト全体で一貫したコンパイルフラグが適用される。
+   `lib/FreeRTOS/`にソースを配置し、`build_flags`でインクルードパスを明示的に指定。
 
-2. **ARM_CM3ポートを使用**
+2. **FPUフラグを追加してARM_CM4Fポートを使用**
 
-   FPU命令を使用しないARM_CM3ポートを採用。Cortex-M4でも問題なく動作する（FPUコンテキストの保存は行われない）。
+   `platformio.ini`に以下のフラグを追加することで、ARM_CM4F（FPU対応）ポートが使用可能になる：
 
-### 代替案（未検証）
+   ```ini
+   build_flags =
+       -I lib/FreeRTOS/src/include
+       -I lib/FreeRTOS/src/portable/GCC/ARM_CM4F
+       -mthumb
+       -mfpu=fpv4-sp-d16
+       -mfloat-abi=softfp
+   ```
 
-- `board_build.mcu`や`build_flags`でFPUを明示的に有効化し、ARM_CM4Fポートを使用する方法もあるが、フレームワーク全体の再ビルドが必要になる可能性がある。
+   - `-mfpu=fpv4-sp-d16`: STM32F4のFPU（単精度）を指定
+   - `-mfloat-abi=softfp`: ソフトフロートABI（FPU命令は使用するが関数呼び出しはソフト）
+
+### 関連するPlatformIO GitHub Issue
+
+- [Issue #591: Make FPU and CMSIS-DSP configuration easier](https://github.com/platformio/platform-ststm32/issues/591) - **OPEN**
+  - STM32CubeビルダーがFPUフラグを自動設定しない問題。根本的な解決は未実施。
+
+- [Issue #285: FreeRTOS with stm32cube framework on NucleoF767ZI](https://github.com/platformio/platform-ststm32/issues/285) - **CLOSED**
+  - 本プロジェクトで採用した解決策（`-mfloat-abi=softfp`）の情報源。
